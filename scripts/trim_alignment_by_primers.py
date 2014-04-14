@@ -44,10 +44,11 @@ if __name__ == '__main__':
 	ref = LoadSeqs(filename=ref_fp)
 	
 	out_fp = opts.output
+	base, ext = os.path.splitext(ref_fp)
+	out_fp_degap = base  + '_degap' + ext
 	if out_fp is None:
 		base, ext = os.path.splitext(ref_fp)
 		out_fp = base  + '_degap_trim' + ext
-		out_fp_degap = base  + '_degap' + ext
 
 	# trim primers and reverse-complement reverse primer
 	forward_primer_full = opts.forward
