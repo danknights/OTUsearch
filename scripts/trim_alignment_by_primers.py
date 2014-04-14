@@ -12,8 +12,34 @@ from cogent import LoadSeqs
 import sys
 import os
 import optparse
-
 PRIMER_TRIM_LEN = 6
+
+def ambiguousMatchChar(char1,char2,accept_both_ambiguous=True):	
+	"""Matches two DNA characters accounting for ambiguous bases in one or both.
+	"""
+	ambig_codes = {'K':set(['G','T']), 'M':set(['A','C']), 'R':set(['A','G']), 'Y':set(['C','T']), 'S':set(['C','G']), 'W':set(['A','T']), 'B':set(['C','G','T']), 'V':set(['A','C','G']), 'H':set(['A','C','T']), 'D':set(['A','G','T']), 'N':set(['A','C','G','T']), 'A':set(['A']), 'C':set(['C']), 'G':set(['G']), 'T':set(['T'])}
+	set1 = ambig_codes[char1]
+	set2 = ambig_codes[char2]
+	if not accept_both_ambiguous and (len(set1) + len(set2)) > 2:
+		return False
+	if len(set1.intersection(set2)) > 0:
+		return True
+	return False
+
+def findMotif(seq,motif):	
+	"""Determines the index of the motif (a string) in the sequence object seq
+	   ignoring gaps in seq and accounting for ambiguous bases   
+	"""
+	
+	# check each starting position
+	degap = str(seq.degap())
+	for i in xrange(len(degap)-len(motif)):
+		j = 0
+		while j < len(motif) and ambiguousMatchChar(motif[j],degap[i+j]):
+			j += 1
+		if j == len(motif):
+			return seq.gapMaps()[0][i]
+	return -1	
 
 def get_opts():
     p = optparse.OptionParser()
@@ -40,14 +66,16 @@ if __name__ == '__main__':
 	check_opts(opts)
 	
 	# load alignment
+	if opts.verbose:
+		print 'Loading seqs...'
 	ref_fp = opts.input
 	ref = LoadSeqs(filename=ref_fp)
 	
 	out_fp = opts.output
-	base, ext = os.path.splitext(ref_fp)
+	base, ext = os.path.splitext(os.path.split(ref_fp)[1])
 	out_fp_degap = base  + '_degap' + ext
 	if out_fp is None:
-		base, ext = os.path.splitext(ref_fp)
+		base, ext = os.path.splitext(os.path.split(ref_fp)[1])
 		out_fp = base  + '_degap_trim' + ext
 
 	# trim primers and reverse-complement reverse primer
@@ -56,13 +84,25 @@ if __name__ == '__main__':
 	reverse_primer = str(DNA.makeSequence(opts.reverse).rc())[:PRIMER_TRIM_LEN]
 
 	# drop any all-gap positions in alignment
+	if opts.verbose:
+		print 'Removing extraneous gaps...'
 	ref = ref.omitGapPositions()
 	
-	ref.writeToFile(out_fp_degap)
-	
 	# find start and end of primer in first ref sequence
-	start_index = str(ref._seqs[0]).index(forward_primer)
-	end_index = str(ref._seqs[0]).index(reverse_primer)
-	ref = ref[(start_index + len(forward_primer_full)):end_index]
+	if opts.verbose:
+		print 'Searching for primers...'
+	primers_found = False
+	count = 0
+	seq_names = ref.Names
+	while not primers_found and count < len(ref):
+		start_index = findMotif(ref.getGappedSeq(seq_names[count]), forward_primer)
+		end_index = findMotif(ref.getGappedSeq(seq_names[count]), reverse_primer)
+		primers_found = start_index > 0 and end_index > 0
+		count += 1
+		if opts.verbose:
+			print "Primers not found in sequence" + str(count) + '...'
+	if not primers_found:
+		raise ValueError('\n\nPrimers not found in ref seqs.')
 
+	ref = ref[(start_index + len(forward_primer_full)):end_index]
 	ref.writeToFile(out_fp)

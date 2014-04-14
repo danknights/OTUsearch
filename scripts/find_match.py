@@ -13,6 +13,7 @@ import sys
 import os
 import optparse
 from numpy import argsort, array
+import 
  
 def getMatches(queries, ref, tr, cluster_centroids, 
 			  cluster_sizes, optimal=False, threshold=0.97, verbose=0):

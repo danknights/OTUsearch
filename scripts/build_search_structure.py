@@ -64,7 +64,7 @@ if __name__ == '__main__':
 	
 	out_fp = opts.output
 	if out_fp is None:
-		base, ext = os.path.splitext(ref_fp)
+		base, ext = os.path.splitext(os.path.split(ref_fp)[1])
 		out_fp = base  + '_search_index.txt'
 	
 	cluster_sizes = {}
