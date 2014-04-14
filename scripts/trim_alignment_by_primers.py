@@ -26,7 +26,7 @@ def ambiguousMatchChar(char1,char2,accept_both_ambiguous=True):
 		return True
 	return False
 
-def findMotif(seq,motif):	
+def findMotif(seq,motif,end_pos=False):	
 	"""Determines the index of the motif (a string) in the sequence object seq
 	   ignoring gaps in seq and accounting for ambiguous bases   
 	"""
@@ -38,6 +38,8 @@ def findMotif(seq,motif):
 		while j < len(motif) and ambiguousMatchChar(motif[j],degap[i+j]):
 			j += 1
 		if j == len(motif):
+			if end_pos:
+				return seq.gapMaps()[0][i + len(motif)]
 			return seq.gapMaps()[0][i]
 	return -1	
 
@@ -80,8 +82,8 @@ if __name__ == '__main__':
 
 	# trim primers and reverse-complement reverse primer
 	forward_primer_full = opts.forward
-	forward_primer = forward_primer_full[:PRIMER_TRIM_LEN]
-	reverse_primer = str(DNA.makeSequence(opts.reverse).rc())[:PRIMER_TRIM_LEN]
+	forward_primer = forward_primer_full
+	reverse_primer = str(DNA.makeSequence(opts.reverse).rc())
 	
 	# find start and end of primer in first ref sequence
 	if opts.verbose:
@@ -90,7 +92,8 @@ if __name__ == '__main__':
 	count = 0
 	seq_names = ref.Names
 	while not primers_found and count < len(ref):
-		start_index = findMotif(ref.getGappedSeq(seq_names[count]), forward_primer)
+		
+		start_index = findMotif(ref.getGappedSeq(seq_names[count]), forward_primer, end_pos=True)
 		end_index = findMotif(ref.getGappedSeq(seq_names[count]), reverse_primer)
 		primers_found = start_index > 0 and end_index > 0
 		count += 1
@@ -99,7 +102,7 @@ if __name__ == '__main__':
 	if not primers_found:
 		raise ValueError('\n\nPrimers not found in ref seqs.')
 
-	ref = ref[(start_index + len(forward_primer_full)):end_index]
+	ref = ref[start_index:end_index]
 
 	# drop any all-gap positions in alignment
 	if opts.verbose:

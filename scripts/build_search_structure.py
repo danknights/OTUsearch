@@ -76,9 +76,17 @@ if __name__ == '__main__':
 	# WARNING, HACK
 	# we are using a randomly chosen tip as the centroid for each cluster!
 	# this should be modified to a true centroid
+	if opts.verbose:
+		print "Getting centroids..."
 	for node in tr.preorder():
 		if not node.isroot() and not node.istip():
 			cluster_centroids[node.Name] = node.tips()[0].Name
+# Alternative : use tip with lowest tip-to-tip distances
+# This should be faster but it's not for some reason
+# 			ttd = node.tipToTipDistances()
+# 			centroid_ix = ttd[0].mean(0).argmin()
+# 			centroid_name = ttd[1][centroid_ix].Name
+# 			cluster_centroids[node.Name] = centroid_name
 
 	if opts.verbose:
 		print 'Getting cluster sizes...'
