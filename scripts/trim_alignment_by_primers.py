@@ -47,6 +47,7 @@ if __name__ == '__main__':
 	if out_fp is None:
 		base, ext = os.path.splitext(ref_fp)
 		out_fp = base  + '_degap_trim' + ext
+		out_fp_degap = base  + '_degap' + ext
 
 	# trim primers and reverse-complement reverse primer
 	forward_primer_full = opts.forward
@@ -55,7 +56,9 @@ if __name__ == '__main__':
 
 	# drop any all-gap positions in alignment
 	ref = ref.omitGapPositions()
-
+	
+	ref.writeToFile(out_fp_degap)
+	
 	# find start and end of primer in first ref sequence
 	start_index = str(ref._seqs[0]).index(forward_primer)
 	end_index = str(ref._seqs[0]).index(reverse_primer)

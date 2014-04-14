@@ -71,15 +71,11 @@ if __name__ == '__main__':
 	cluster_centroids = {}
 			
 	# WARNING, HACK
-	# Eventually we need to choose centroids appropriately; here we're assuming
-	# the internal nodes of the tree are already labeled to match 
-	# the tips chosen as the centroids, which means pycogent loads them appending
-	# ".1", ".2", ... to the end
-	# Here we initialize cluster centroid IDs directly from tree node names
-	# assume internal nodes are tipname.0, tipname.1, ....
+	# we are using a randomly chosen tip as the centroid for each cluster!
+	# this should be modified to a true centroid
 	for node in tr.preorder():
 		if not node.isroot() and not node.istip():
-			cluster_centroids[node.Name] = node.Name.split('.')[0]
+			cluster_centroids[node.Name] = node.tips()[0].Name
 
 	cluster_sizes = getClusterSizes(tr, cluster_centroids, ref)
 		
