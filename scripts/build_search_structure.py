@@ -57,9 +57,12 @@ if __name__ == '__main__':
 	check_opts(opts)
 	
 	# load alignment
+	if opts.verbose:
+		print 'Loading seqs...'
 	ref_fp = opts.alignment
 	ref = LoadSeqs(filename=ref_fp)
-	ref = ref.omitGapPositions()
+	if opts.verbose:
+		print 'Loading tree...'
 	tr = cogent.LoadTree(opts.tree)
 	
 	out_fp = opts.output
@@ -76,6 +79,9 @@ if __name__ == '__main__':
 	for node in tr.preorder():
 		if not node.isroot() and not node.istip():
 			cluster_centroids[node.Name] = node.tips()[0].Name
+
+	if opts.verbose:
+		print 'Getting cluster sizes...'
 
 	cluster_sizes = getClusterSizes(tr, cluster_centroids, ref)
 		

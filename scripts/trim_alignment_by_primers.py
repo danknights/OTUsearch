@@ -82,11 +82,6 @@ if __name__ == '__main__':
 	forward_primer_full = opts.forward
 	forward_primer = forward_primer_full[:PRIMER_TRIM_LEN]
 	reverse_primer = str(DNA.makeSequence(opts.reverse).rc())[:PRIMER_TRIM_LEN]
-
-	# drop any all-gap positions in alignment
-	if opts.verbose:
-		print 'Removing extraneous gaps...'
-	ref = ref.omitGapPositions()
 	
 	# find start and end of primer in first ref sequence
 	if opts.verbose:
@@ -105,4 +100,10 @@ if __name__ == '__main__':
 		raise ValueError('\n\nPrimers not found in ref seqs.')
 
 	ref = ref[(start_index + len(forward_primer_full)):end_index]
+
+	# drop any all-gap positions in alignment
+	if opts.verbose:
+		print 'Removing extraneous gaps...'
+	ref = ref.omitGapPositions()
+
 	ref.writeToFile(out_fp)
