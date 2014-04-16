@@ -1,6 +1,6 @@
 # python matrix_seq.py query.fasta ref.fasta .97
 import sys
-from otusearch import alignmentToBinaryMatrix
+from otusearch import alignmentToBinaryMatrix, alignmentToBinaryMatrixFast, loadPrecomputedRefMatrices
 import numpy as np
 from cogent import LoadSeqs
 import pickle
@@ -11,7 +11,9 @@ import optparse
 def get_opts():
     p = optparse.OptionParser()
     p.add_option("-r", "--ref_fp", type="string", \
-        default=None, help="Reference alignment file [required].")
+        default=None, help="Reference alignment fasta file [this or ref_folder required].")
+    p.add_option("-f", "--ref_folder", type="string", \
+        default=None, help="Folder containing precomputed ref matrices [this or ref_fp required].")
     p.add_option("-q", "--query_fp", type="string", \
         default=None, help="Query alignment file [required].")
     p.add_option("-s", "--similarity", type="float", \
@@ -25,7 +27,7 @@ def get_opts():
     return opts, args
 
 def check_opts(opts):
-	if opts.ref_fp is None:
+	if opts.ref_fp is None and opts.ref_folder is None:
 		raise ValueError('\n\nPlease include an input reference alignment.')
 	if opts.query_fp is None:
 		raise ValueError('\n\nPlease include a input query alignment.')
@@ -36,8 +38,11 @@ if __name__ == '__main__':
 
 	if opts.verbose:
 		print "Initialize matrices..."
-	refmat = alignmentToBinaryMatrix(opts.ref_fp)
-	querymat = alignmentToBinaryMatrix(opts.query_fp)
+	if opts.ref_folder is not None:
+		refmat = loadPrecomputedRefMatrices(opts.ref_folder)
+	else:
+		refmat = alignmentToBinaryMatrixFast(opts.ref_fp)
+	querymat = alignmentToBinaryMatrixFast(opts.query_fp)
 	threshold = float(opts.similarity)
 
 	nquery = querymat[querymat.keys()[0]].shape[0]
