@@ -1,78 +1,119 @@
 # python matrix_seq.py query.fasta ref.fasta .97
 import sys
-from otusearch import alignmentToBinaryMatrix, alignmentToBinaryMatrixFast, loadPrecomputedRefMatrices
+from otusearch import alignmentToBinaryMatrix
 import numpy as np
 from cogent import LoadSeqs
 import pickle
 import sys
 import time
 import optparse
+from scipy import int8
+from scipy.sparse import csr_matrix, csc_matrix
+import numpy
 
 def get_opts():
     p = optparse.OptionParser()
     p.add_option("-r", "--ref_fp", type="string", \
-        default=None, help="Reference alignment fasta file [this or ref_folder required].")
-    p.add_option("-f", "--ref_folder", type="string", \
-        default=None, help="Folder containing precomputed ref matrices [this or ref_fp required].")
+        default=None, help="Reference alignment (fasta) or precomputed data (.npz) [required].")
     p.add_option("-q", "--query_fp", type="string", \
         default=None, help="Query alignment file [required].")
     p.add_option("-s", "--similarity", type="float", \
         default=.97, help="Minimum similarity [default %default]")
+    p.add_option("--query_blocksize", type="int", \
+        default=5000, help="Query sequence block size for matrix multiplication [default %default]")
+    p.add_option("--ref_blocksize", type="int", \
+        default=5000, help="Ref sequence block size for matrix multiplication [default %default]")
     p.add_option("-o", "--output", type="string", \
         default="otusearch.txt", help="Output results file [default %default].")
+    p.add_option("--sparse", action="store_true", \
+        help="Use sparse matrix representations [default %default].")
     p.add_option("--verbose", action="store_true", \
-        help="Print all output.")
+        help="Print all output [default %default].")
     opts, args = p.parse_args(sys.argv)
 
     return opts, args
 
 def check_opts(opts):
-	if opts.ref_fp is None and opts.ref_folder is None:
+	if opts.ref_fp is None:
 		raise ValueError('\n\nPlease include an input reference alignment.')
 	if opts.query_fp is None:
 		raise ValueError('\n\nPlease include a input query alignment.')
 
-if __name__ == '__main__':
+def main():
 	opts, args = get_opts()
 	check_opts(opts)
 
 	if opts.verbose:
 		print "Initialize matrices..."
-	if opts.ref_folder is not None:
-		refmat = loadPrecomputedRefMatrices(opts.ref_folder)
-	else:
-		refmat = alignmentToBinaryMatrixFast(opts.ref_fp)
-	querymat = alignmentToBinaryMatrixFast(opts.query_fp)
+	refmat = alignmentToBinaryMatrix(opts.ref_fp, sparse=opts.sparse, transpose=True)
+	querymat = alignmentToBinaryMatrix(opts.query_fp, sparse=opts.sparse)
 	threshold = float(opts.similarity)
 
 	nquery = querymat[querymat.keys()[0]].shape[0]
-	nref = refmat[refmat.keys()[0]].shape[0]
-	npos = refmat[refmat.keys()[0]].shape[1]
+	npos = refmat[refmat.keys()[0]].shape[0]
+	nref = refmat[refmat.keys()[0]].shape[1]
 	
-	sim = np.zeros((nquery, nref), dtype='float32')
+	if opts.query_blocksize == 0:
+		opts.query_blocksize = nquery
+	if opts.ref_blocksize == 0:
+		opts.ref_blocksize = nref
+	
+	# do blocks of up to query_blocksize query seqs and
+	# blocks of up to ref_blocksize ref seqs
+	if opts.verbose:
+		print 'Do multiplication in blocks of',opts.query_blocksize,'*',opts.ref_blocksize
+	
+
+	# best_sim is a list of best similarities for each query
+	best_sim = np.zeros(nquery)
 
 	if opts.verbose:
 		print 'Matrix multiplication...'
 		prevtime = time.clock()
-	for letter in list('ACTG'):
-		sim += np.dot(querymat[letter], refmat[letter].T)
+
+	sim = np.zeros((opts.query_blocksize,opts.ref_blocksize), dtype='float32')
+
+	ref_blockstart = 0
+	while ref_blockstart < nref:	
+		if opts.verbose:
+			sys.stdout.write(str(ref_blockstart) + ' ')
+			sys.stdout.flush()
+		ref_blockend = min(nref, ref_blockstart + opts.ref_blocksize)
+		ref_blocksize_i = ref_blockend - ref_blockstart
+		
+		query_blockstart = 0
+		
+		while query_blockstart < nquery:
+
+			query_blockend = min(nquery, query_blockstart + opts.query_blocksize)
+			query_blocksize_i = query_blockend - query_blockstart
+			sim[:query_blocksize_i,:ref_blocksize_i] = 0
+			for letter in list('ACTG'):
+				a = querymat[letter][query_blockstart:query_blockend,:]
+				b = refmat[letter][:,ref_blockstart:ref_blockend]
+				res = a.dot(b)
+				sim[:query_blocksize_i,:ref_blocksize_i] += res
+			
+			best_sim[query_blockstart:query_blockend] = \
+					np.maximum(best_sim[query_blockstart:query_blockend],
+							   sim[:query_blocksize_i,:ref_blocksize_i].max(1))
+			query_blockstart += opts.query_blocksize
+		ref_blockstart += opts.ref_blocksize
+
+	if opts.verbose:
+		sys.stdout.write('\n')
+			
 	if opts.verbose:
 		print time.clock() - prevtime
 		prevtime = time.clock()
 
-	# sim = sim / npos
-	if opts.verbose:
-		print 'Tally...'
-	sim_scores = np.zeros(nquery)
-	match_ix = np.zeros(nquery)
-
-	for i in xrange(nquery):
-		match_ix[i] = sim[i,:].argmax()
-		sim_scores[i] = sim[i,match_ix[i]]
-	sim_scores = sim_scores / (npos - querymat['-'].sum(1))
-
+	best_sim = best_sim / npos
 	if opts.verbose:
 		print time.clock() - prevtime
 		prevtime = time.clock()
 
-	print sum(sim_scores >= threshold)
+	print sum(best_sim >= threshold)
+
+
+if __name__ == '__main__':
+	main()
