@@ -12,6 +12,8 @@ def get_opts():
         default=None, help="Reference alignment file [required].")
     p.add_option("-o", "--output", type="string", \
         default=None, help="Compressed output file path [default <ref_fp base name>.npz].")
+    p.add_option("--suppress_random_order", action="store_true", \
+        help="Suppress randomization of order of sequences.")
     p.add_option("--verbose", action="store_true", \
         help="Print all output.")
     opts, args = p.parse_args(sys.argv)
@@ -28,5 +30,6 @@ if __name__ == '__main__':
 
 	if opts.output is None:
 		opts.output = os.path.splitext(os.path.split(opts.ref_fp)[1])[0] + '.npz'
-	refmat = alignmentToBinaryMatrix(opts.ref_fp, transpose=False, save_to_fp=opts.output)
+	refmat = alignmentToBinaryMatrix(opts.ref_fp, transpose=False,
+			random_order = not opts.suppress_random_order, save_to_fp=opts.output)
 

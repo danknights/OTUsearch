@@ -3,7 +3,6 @@ import numpy as np
 from cogent import LoadSeqs
 import sys
 import time
-from pysparse import spmatrix
 import os
 import mmap
 from otusearch.util import alignmentShapeFromFasta
@@ -11,7 +10,7 @@ from scipy.sparse import csr_matrix, lil_matrix
 from scipy import int8
 
 def alignmentToBinaryMatrix(fasta_fp, sparse=False, transpose=False,
-			save_to_fp=None, verbose=True, dtype='float32'):
+			random_order=False,	save_to_fp=None, verbose=True, dtype='float32'):
 	"""Loads an alignment from a fasta file into binary matrices for A, C, G, T, -.
 	   returns a dict keyed by A, C, G, T, -.
 	   
@@ -67,81 +66,12 @@ def alignmentToBinaryMatrix(fasta_fp, sparse=False, transpose=False,
 					res[ch][i,j] = 1.0
 				j += 1
 
-	if transpose:
+	if random_order:
+		# randomly permute ref seqs to distribute similar sequences
+		permuted_ix = np.random.permutation(np.arange(nseq))
 		for letter in dna:
-			res[letter] = res[letter].T
-
-	if verbose:
-		print time.clock() - prevtime
-
-	if save_to_fp is not None:
-		np.savez_compressed(save_to_fp, **res)
-
-	if sparse:
-		if verbose:
-			print "Converting to sparse..."
-		for key in res.keys():
-			res[key] = lil_matrix(res[key],dtype=dtype).tocsr()
-	return res
-
-
-def alignmentToSets(fasta_fp, sparse=False, transpose=False,
-			save_to_fp=None, verbose=True, dtype='float32'):
-	"""Loads an alignment from a fasta file into sets of positions for A, C, G, T, -.
-	   returns a dict keyed by A, C, G, T, -. Each element is a list of sets.
-	   
-	   if sparse, returns a scipy.sparse.csr_matrix
-	   Note: matrices are always transposed before saving to compressed file
-	"""
-
-	if os.path.splitext(fasta_fp)[1] == '.npz':
-		if verbose:
-			print "Loading saved numpy data..."
-		tmp = np.load(fasta_fp)
-		res = {}
-		for key in tmp.keys():
-			if transpose:
-				res[key] = tmp[key].T
-			else:		
-				res[key] = tmp[key]
-			res[key] = res[key].astype(dtype)
-		if sparse:
-			if verbose:
-				print "Converting to sparse..."
-			for key in res.keys():
-				res[key] = lil_matrix(res[key],dtype=dtype).tocsr()
-		return res
+			res[letter] = res[letter][permuted_ix,:]
 	
-	# load sequence data
-	prevtime = time.clock()
-	if verbose:
-		print "Allocate matrices..."
-
-	nseq, npos = alignmentShapeFromFasta(fasta_fp)
-	
-	dna = ['A','C','G','T','-']
-	res = {} # a dict to hold the 5 binary matrices
-
-	for letter in dna:
-		res[letter] = np.zeros((nseq, npos),dtype=dtype)
-
-	prevtime = time.clock()
-	if verbose:
-		print "Load data from",fasta_fp + "..."
-
-	# dict of lists of lists (rows of columns)
-	i = -1
-	j = 0
-	for line in open(fasta_fp,'r'):
-		if line.startswith('>'):
-			j = 0
-			i += 1
-		else:
-			for ch in line.strip():
-				if res.has_key(ch):
-					res[ch][i,j] = 1.0
-				j += 1
-
 	if transpose:
 		for letter in dna:
 			res[letter] = res[letter].T
